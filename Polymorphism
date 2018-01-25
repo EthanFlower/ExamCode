@@ -1,0 +1,287 @@
+public class Player extends Ship
+{
+    /**
+     * Act - do whatever the Ship wants to do. This method is called whenever
+     * the 'Act' or 'Run' button gets pressed in the environment.
+     */
+    String [] controls = new String[5];
+    boolean drift = true;//should i be drifting?
+    int lastDirection;//ints for drifting(can turn while drifting)
+    int newDirection;
+    MyWorld world;
+    respawnTimer timer = new respawnTimer();
+    int spwnTime = 3;
+    boolean respInvinc = false;//is invincibility on
+    int time = spwnTime;//3 second respawn invincibility
+    boolean unlimitAmmo = false;//cheatty cheat cheat!
+    boolean unlimitAmmoKeyDown = false;
+    boolean shootKeyDown = false;
+    boolean mouseMoving = true;
+    MouseInfo mouse;
+    int playerNumb;
+
+    public Player(){
+        speed = 3;//set speed
+    }
+
+    public void act() 
+    {
+        // Add your action code here.       
+        //speed = 3;
+        if( world == null){
+            world = (MyWorld) getWorld();
+        } 
+        controlsAre();//get controls, then apply them
+        if(mouseMoving == false){
+            move();
+        } else if (mouseMoving == true){
+            mouseMove();
+        }
+        wallWarp();//should i warp to the other side of the map?
+        lifeCheck();//am i dead? should i have less life?
+        cheats();//nothing suspisious...
+        
+    }    
+
+    public void move(){
+        if(Greenfoot.isKeyDown(controls[2]) == true){
+            turn(-5);
+        }
+        if(Greenfoot.isKeyDown(controls[3]) == true){
+            turn(5);
+        }
+        if(Greenfoot.isKeyDown(controls[0]) == true){//forwards
+            speed = 3;
+            move(speed);
+            lastDirection = getRotation();
+            drift = false;
+        }
+        else if(Greenfoot.isKeyDown(controls[0]) == false && Greenfoot.isKeyDown(controls[1]) == false && drift == false){
+            drift();
+        }
+        if (Greenfoot.isKeyDown(controls[1]) == true){
+            speed = 0;
+            move(speed);
+            drift = true;
+        }
+        canShoot();
+    }
+
+    public void mouseMove(){
+        mouse = Greenfoot.getMouseInfo();//update mouse info
+        if(mouse != null){
+            turnTowards(mouse.getX(), mouse.getY());
+            lastDirection = getRotation();//used for drift
+            //only move when far from mouse. dont move when withing ___ pixel length from the mouse so you can turn and shoot without moving
+            if(Math.sqrt(Math.pow(abs(getX() - mouse.getX()),2) + Math.pow(abs(getY() - mouse.getY()),2)) >= 40){
+                move(speed);
+            }
+        } else {
+            drift();
+        }
+        canShootMouse();
+    }
+    //absolute function
+    public int abs(int This){
+        if(This < 0){
+            This *= (-1);
+        }
+        return This; 
+    }
+    //absolute function
+    public double abs(double This){
+        if(This < 0){
+            This *= (-1);
+        }
+        return This; 
+    }
+    //set the controls
+    public void controlsAre(){//player gets them from world, world gets them from CustomControlls screen
+        controls[0] = world.p1controls[0];
+        controls[1] = world.p1controls[1];
+        controls[2] = world.p1controls[2];
+        controls[3] = world.p1controls[3];
+        controls[4] = world.p1controls[4];
+        mouseMoving = world.p1mouseControls;
+        playerNumb = 1;//identifier for bullets
+    }
+    //nothing to see here.
+    private void cheats(){
+        if (Greenfoot.isKeyDown("p") == true){
+            if(unlimitAmmoKeyDown == false){
+                if (unlimitAmmo == true){unlimitAmmo = false;}
+                else if (unlimitAmmo == false){unlimitAmmo = true;}
+                unlimitAmmoKeyDown = true;
+            } 
+        } 
+        else {
+            unlimitAmmoKeyDown = false;
+        }
+
+    }
+    //self explanitory
+    public void drift(){
+        newDirection = getRotation();//get the rotation where you are looking
+        setRotation(lastDirection);//set rotation to the way that you are drifting
+        move(speed);
+        setRotation(newDirection);//set the rotation to where you were looking before
+    }
+    //checking if something bad is about to happen
+    public void lifeCheck(){
+        if (respInvinc == true){
+            //start the invincibility timer
+            timer.run(time);
+            time = timer.time;
+            //make a noticable flashing size change to indicate invincibility
+            if (time == 3 || time == 1){
+                this.getImage().scale(20, 20);
+            } else if (time == 2 || time == 0){
+                this.getImage().scale(30, 30);
+            }
+        } else {
+            this.getImage().scale(30,30);//set to regular size when not invincible
+        }
+        if (time == 0){
+            //check to see if invincibility time is up
+            respInvinc = false;
+        }//*/
+        if (isTouching(Assteroids.class) == true && respInvinc == false){
+            //take you a notch down if you hit an asteroid, become invincible and start the invincibility timer
+            lives -= 1;
+            respInvinc = true;
+            time = spwnTime;
+        }
+        showLives();//update the visual representation of lives
+        if(lives <= 0){//no lives, no life
+            die();
+        }
+    }
+
+    public void showLives(){
+        world.showText("P1 Lives: " + lives, 65, 50);
+    }
+
+    public void die(){//three strikes, you're OUT!
+        world.ship.remove(this);
+        world.removeObject(this);   
+    }
+
+    public void canShoot(){
+        if(Greenfoot.isKeyDown(controls[4])== true && world.p1Ammo.size() <= 2 && unlimitAmmo == false){//can fire 3 shots at a time and fires as fast as you can press the fire button
+            if(shootKeyDown == false){
+                shoot();
+                shootKeyDown = true;
+            } 
+        } else if(Greenfoot.isKeyDown(controls[4])== true && unlimitAmmo == true){
+            shoot();
+        }
+        else {
+            shootKeyDown = false;
+        }
+    }
+    //the mouse firing system
+    public void canShootMouse(){
+        if(mouse != null && mouseMoving == true && mouse.getButton() == 1 && world.p1Ammo.size() <= 2 && unlimitAmmo == false){//can fire 3 shots at a time and fires as fast as you can press the fire button
+            if(shootKeyDown == false){
+                shoot();
+                shootKeyDown = true;
+            } 
+        } else if(mouse != null && mouseMoving == true && mouse.getButton() == 1 && unlimitAmmo == true){
+            shoot();
+        }
+        else {
+            shootKeyDown = false;
+        }
+    }
+
+    public void shoot(){//make new bullet, add to my ammo, and set rotation to my rotation
+        //if(Greenfoot.isKeyDown("space") == true){
+        world.shot.add(new Shot(playerNumb));
+        world.p1Ammo.add(world.shot.get(world.shot.size()-1));
+        world.shot.get(world.shot.size()-1).getImage().scale(15, 15);
+        world.addObject(world.shot.get(world.shot.size()-1), getX(), getY());
+        world.shot.get(world.shot.size()-1).setRotation(this.getRotation());
+        //}
+    }
+    //warp to the other side of the map when past the specified parameters
+    public void wallWarp(){
+        if(getX() >= (world.getWidth()+getImage().getWidth()/2)){
+            setLocation(-getImage().getWidth()/2, getY());
+        }
+        else if(getY() >= world.getHeight()+getImage().getHeight()/2){
+            setLocation(getX(), -getImage().getHeight()/2);
+        }
+        else if(getX() <= -getImage().getWidth()/2){
+            setLocation(world.getWidth()+getImage().getWidth()/2, getY());
+        }
+        else if(getY() <= -getImage().getHeight()/2){
+            setLocation(getX(), world.getHeight()+getImage().getHeight()/2);
+        }
+    }
+    
+    
+    ###############################################################################
+    
+    
+    public class Player2 extends Player
+{
+
+    static public ArrayList <Shot> ammo2 = new ArrayList<Shot>();;
+
+    /**
+     * Act - do whatever the Player2 wants to do. This method is called whenever
+     * the 'Act' or 'Run' button gets pressed in the environment.
+     */
+
+    public void controlsAre(){//player gets them from world, world gets them from CustomControlls screen
+        controls[0] = world.p2controls[0];
+        controls[1] = world.p2controls[1];
+        controls[2] = world.p2controls[2];
+        controls[3] = world.p2controls[3];
+        controls[4] = world.p2controls[4];
+        mouseMoving = world.p2mouseControls;
+        playerNumb = 2;//identifier for bullets
+    }
+
+    public void canShoot(){
+        if(Greenfoot.isKeyDown(controls[4])== true && world.p2Ammo.size() <= 2 && unlimitAmmo == false){//can fire 3 shots at a time and fires as fast as you can press the fire button
+            if(shootKeyDown == false){
+                shoot();
+                shootKeyDown = true;
+            } 
+        } else if(Greenfoot.isKeyDown(controls[4])== true && unlimitAmmo == true){//rapid fire
+            shoot();
+        }
+        else {
+            shootKeyDown = false;
+        }
+    }
+    //the mouse firing system
+    public void canShootMouse(){
+        if(mouse != null && mouseMoving == true && mouse.getButton() == 1 && world.p2Ammo.size() <= 2 && unlimitAmmo == false){//can fire 3 shots at a time and fires as fast as you can press the fire button
+            if(shootKeyDown == false){
+                shoot();
+                shootKeyDown = true;
+            } 
+        } else if(mouse != null && mouseMoving == true && mouse.getButton() == 1 && unlimitAmmo == true){//rapid fire
+            shoot();
+        }
+        else {
+            shootKeyDown = false;
+        }
+    }
+
+    public void shoot(){//make new bullet, add to my ammo, and set rotation to my rotation
+        //if(Greenfoot.isKeyDown("space") == true){
+        world.shot.add(new Shot(playerNumb));
+        world.p2Ammo.add(world.shot.get(world.shot.size()-1));
+        world.shot.get(world.shot.size()-1).getImage().scale(15, 15);
+        world.addObject(world.shot.get(world.shot.size()-1), getX(), getY());
+        world.shot.get(world.shot.size()-1).setRotation(this.getRotation());
+        //}
+    }
+
+    public void showLives(){
+        world.showText("P2 Lives: " + lives, 65, 70);
+    }
+}
